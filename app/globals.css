@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+/* ─── Meza Digital Design Tokens ─────────────────────────────────────── */
+@theme {
+  /* Light theme (default) */
+  --color-void:         #f4f7fc;
+  --color-surface:      #ffffff;
+  --color-surface-2:    #edf1f8;
+  --color-blue:         #0055cc;
+  --color-blue-bright:  #0070f3;
+  --color-cyan:         #00a8e8;
+  --color-cyan-light:   #33c5f5;
+  --color-ink:          #0d1421;
+  --color-ink-dim:      #4a5568;
+  --color-muted:        #8899aa;
+  --color-border:       rgba(0,85,204,0.10);
+  --color-grid:         rgba(0,85,204,0.05);
+
+  /* Fonts */
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body:    "DM Sans", system-ui, sans-serif;
+  --font-mono:    "DM Mono", "Fira Mono", monospace;
+
+  /* Easing */
+  --ease-silk: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ─── Dark theme ───────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-void:         #060a12;
+  --color-surface:      #0d1421;
+  --color-surface-2:    #111827;
+  --color-blue:         #3385ff;
+  --color-blue-bright:  #5599ff;
+  --color-cyan:         #00c8f8;
+  --color-cyan-light:   #33d8ff;
+  --color-ink:          #e2eaf5;
+  --color-ink-dim:      #8899aa;
+  --color-muted:        #4a5568;
+  --color-border:       rgba(51,133,255,0.14);
+  --color-grid:         rgba(51,133,255,0.05);
+}
+
+/* ─── Base ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-color: var(--color-border);
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s var(--ease-silk), color 0.35s var(--ease-silk);
+}
+
+/* Remove radius everywhere — sharp corners */
+* { border-radius: 0 !important; }
+
+/* ─── Typography ──────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--color-void); }
+::-webkit-scrollbar-thumb { background: var(--color-blue); }
+
+/* ─── Selection ───────────────────────────────────────────────────────── */
+::selection {
+  background: var(--color-blue);
+  color: #fff;
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────────── */
+.font-display  { font-family: var(--font-display); }
+.font-body     { font-family: var(--font-body); }
+
+.label-caps {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* ─── Grid decoration overlay ────────────────────────────────────────── */
+.grid-bg {
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ─── Holographic shape ───────────────────────────────────────────────── */
+@keyframes morph {
+  0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  50%  { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+@keyframes holo-shift {
+  0%   { filter: hue-rotate(0deg) brightness(1.05); }
+  50%  { filter: hue-rotate(30deg) brightness(1.1); }
+  100% { filter: hue-rotate(0deg) brightness(1.05); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50%       { transform: translateY(-18px) rotate(2deg); }
+}
+
+.holo-shape {
+  animation:
+    morph     8s ease-in-out infinite,
+    holo-shift 5s ease-in-out infinite,
+    float      6s ease-in-out infinite;
+  background: conic-gradient(
+    from 200deg,
+    #b8d9f8 0%,
+    #a0c4ff 15%,
+    #c0e8ff 30%,
+    #d4f0ff 45%,
+    #b8d4f8 60%,
+    #9bbde8 75%,
+    #c8dcf8 90%,
+    #b8d9f8 100%
+  );
+  box-shadow:
+    0 0 80px rgba(0,130,255,0.18),
+    inset 0 0 40px rgba(255,255,255,0.3);
+}
+
+[data-theme="dark"] .holo-shape {
+  background: conic-gradient(
+    from 200deg,
+    #0a3d8f 0%,
+    #0066cc 15%,
+    #0088ff 30%,
+    #00aae0 45%,
+    #0066cc 60%,
+    #003d99 75%,
+    #0055bb 90%,
+    #0a3d8f 100%
+  );
+  box-shadow:
+    0 0 100px rgba(0,130,255,0.3),
+    inset 0 0 50px rgba(0,180,255,0.15);
+}
+
+/* ─── Scroll reveal ───────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.7s var(--ease-silk),
+    transform 0.7s var(--ease-silk);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Nav link underline ──────────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-dim);
+  text-decoration: none;
+  transition: color 0.25s;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: var(--color-blue);
+  transition: width 0.3s var(--ease-silk);
+}
+.nav-link:hover { color: var(--color-ink); }
+.nav-link:hover::after { width: 100%; }
+
+/* ─── Section divider line ───────────────────────────────────────────── */
+.section-rule {
+  width: 48px;
+  height: 2px;
+  background: var(--color-blue);
+  display: block;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Film grain (subtle on light bg) ───────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.022;
+}

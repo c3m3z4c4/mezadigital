@@ -1,0 +1,117 @@
+/* Custom Stylesheet */
+/**
+ * Use this file to override Materialize files so you can update
+ * the core Materialize files in the future
+ *
+ * Made By MaterializeCSS.com
+ */
+h1{
+
+  font-size: 3em;
+}
+nav ul a,
+nav .brand-logo {
+  color: #444;
+}
+
+p {
+  line-height: 2rem;
+}
+
+.button-collapse {
+  color: #6EB0F8;
+}
+
+.parallax-container {
+  min-height: 480px;
+  line-height: 0;
+  height: auto;
+  color: #ffffffb3;
+}
+  .parallax-container .section {
+    width: 100%;
+
+  }
+
+
+
+
+#fondo{
+  opacity: 0.6;
+}
+
+#hero{
+  max-width: 100%;
+
+   width:100vw;
+
+}
+
+
+
+@media only screen and (max-width : 992px) {
+  .parallax-container .section {
+    position: absolute;
+    top: 40%;
+  }
+  #index-banner .section {
+    top: 10%;
+  }
+}
+
+@media only screen and (max-width : 600px) {
+  #index-banner .section {
+    top: 0;
+  }
+}
+
+@media only screen and (max-width : 360px) {
+  h1{
+    font-size: 3em;
+    /* color: #304ffe;  */
+    font-weight: bold;
+  }
+}
+
+.icon-block {
+  padding: 0 15px;
+}
+.icon-block .material-icons {
+  font-size: inherit;
+}
+
+footer.page-footer {
+  margin: 0;
+}
+
+/* label color */
+.input-field input{
+  color:  #6EB0F8;
+}
+/* Imput Text Color */
+ .input-field label {
+   color: #6EB0F8;
+ }
+ /* label focus color */
+ .input-field input[type=text]:focus + label {
+   color: #f7e866;
+ }
+ /* label underline focus color */
+ .input-field input[type=text]:focus {
+   border-bottom: 1px solid #f7e866;
+   box-shadow: 0 1px 0 0 #f7e866;
+ }
+ /* valid color */
+ .input-field input[type=text].valid {
+   border-bottom: 1px solid #92C328;
+   box-shadow: 0 1px 0 0 #92C328;
+ }
+ /* invalid color */
+ .input-field input[type=text].invalid {
+   border-bottom: 1px solid rgb(255, 0, 0);
+   box-shadow: 0 1px 0 0 rgb(255, 0, 0);
+ }
+ /* icon prefix focus color */
+ .input-field .prefix.active {
+   color: rgb(247, 232, 102);
+ }

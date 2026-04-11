@@ -1,0 +1,13 @@
+body{
+  font-family: 'Comfortaa', cursive;
+  color: #FFFFFF;
+  background-color: #0093FF;
+}
+
+
+#white{
+  background-color: #FFFFFF;
+  margin: 0 auto;
+  justify-content: center;
+  border: 0;
+}
