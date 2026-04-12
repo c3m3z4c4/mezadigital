@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id             String   @id @default(cuid())
+  title_en       String
+  title_es       String
+  description_en String?
+  description_es String?
+  images         String   @default("[]")
+  projectType    String?  @default("web")
+  techStack      String   @default("[]")
+  githubUrl      String?
+  liveUrl        String?
+  client         String?
+  year           Int?
+  featured       Boolean  @default(false)
+  visible        Boolean  @default(true)
+  order          Int      @default(0)
+  tags           String   @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Service {
+  id             String   @id @default(cuid())
+  title_en       String
+  title_es       String
+  description_en String?
+  description_es String?
+  icon           String?
+  image          String?
+  visible        Boolean  @default(true)
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

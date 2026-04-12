@@ -6,11 +6,12 @@ import { useLangStore } from "@/stores/langStore";
 import { useThemeStore } from "@/stores/themeStore";
 
 const NAV_LINKS = [
-  { key: "home",     href: "#inicio" },
-  { key: "about",    href: "#nosotros" },
-  { key: "services", href: "#servicios" },
-  { key: "clients",  href: "#clientes" },
-  { key: "contact",  href: "#contacto" },
+  { key: "home",      href: "#inicio" },
+  { key: "about",     href: "#nosotros" },
+  { key: "services",  href: "#servicios" },
+  { key: "portfolio", href: "#portafolio" },
+  { key: "clients",   href: "#clientes" },
+  { key: "contact",   href: "#contacto" },
 ] as const;
 
 export function Header() {

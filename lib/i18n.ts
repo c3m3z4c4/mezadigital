@@ -3,11 +3,12 @@ export type Lang = "es" | "en";
 export const translations = {
   es: {
     nav: {
-      home:     "Inicio",
-      about:    "Nosotros",
-      services: "Servicios",
-      clients:  "Clientes",
-      contact:  "Contacto",
+      home:      "Inicio",
+      about:     "Nosotros",
+      services:  "Servicios",
+      portfolio: "Proyectos",
+      clients:   "Clientes",
+      contact:   "Contacto",
     },
     hero: {
       line1:    "Desarrollo web",
@@ -79,11 +80,12 @@ export const translations = {
   },
   en: {
     nav: {
-      home:     "Home",
-      about:    "About",
-      services: "Services",
-      clients:  "Clients",
-      contact:  "Contact",
+      home:      "Home",
+      about:     "About",
+      services:  "Services",
+      portfolio: "Projects",
+      clients:   "Clients",
+      contact:   "Contact",
     },
     hero: {
       line1:    "Creative dev",
