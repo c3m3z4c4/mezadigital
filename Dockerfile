@@ -28,7 +28,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 
+RUN mkdir -p /app/data
+
 EXPOSE 3000
 
-# Run migrations then start
+# Run migrations then start (DATABASE_URL injected via env vars or defaults to /app/data)
 CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
