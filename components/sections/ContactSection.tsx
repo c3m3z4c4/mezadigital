@@ -64,17 +64,14 @@ export function ContactSection() {
 
   async function onSubmit(data: FormData) {
     try {
-      const res = await fetch("https://formspree.io/f/contacto@mezadigital.com", {
+      const res = await fetch("/api/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (res.ok) {
-        toast.success(t.contact.success);
-        reset();
-      } else {
-        toast.error(t.contact.error);
-      }
+      if (!res.ok) throw new Error();
+      toast.success(t.contact.success);
+      reset();
     } catch {
       toast.error(t.contact.error);
     }

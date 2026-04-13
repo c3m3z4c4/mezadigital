@@ -8,7 +8,21 @@
       "Bash(wc:*)",
       "Bash(grep -n \"fetch\\\\|apiFetch\\\\|settingsApi\\\\|getToken\\\\|hardcoded\\\\|TODO\\\\|FIXME\\\\|placeholder\" /Users/cesar/Projects/air-interiors/nextjs/components/public/*.tsx)",
       "Bash(grep:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(chmod +x /Users/cesar/Projects/air-interiors/nextjs/deploy.sh)",
+      "Bash(chmod +x /Users/cesar/Projects/mezadigital/deploy.sh)",
+      "Bash(ssh:*)",
+      "Read(//Users/cesar/.ssh/**)",
+      "Bash(ssh-add -l)",
+      "Bash(curl:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma generate)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npx prisma:*)",
+      "Bash(DATABASE_URL=\"file:./dev.db\" npm run build)",
+      "Bash(node:*)"
     ]
   }
 }

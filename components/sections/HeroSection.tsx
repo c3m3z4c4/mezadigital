@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { useLangStore } from "@/stores/langStore";
 
 /* Decorative SVG ornament (calligraphic, like reference) */
@@ -30,27 +29,11 @@ function Ornament() {
 
 export function HeroSection() {
   const { t } = useLangStore();
-  const router   = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [clicks, setClicks]   = useState(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     videoRef.current?.play().catch(() => {});
   }, []);
-
-  const handleLogoClick = useCallback(() => {
-    setClicks(n => {
-      const next = n + 1;
-      if (next >= 5) {
-        router.push("/admin/login");
-        return 0;
-      }
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setClicks(0), 1500);
-      return next;
-    });
-  }, [router]);
 
   return (
     <section
@@ -107,17 +90,14 @@ export function HeroSection() {
       >
         {/* ── LEFT: Text content ──────────────────────────────── */}
         <div>
-          {/* Label — 5 clics redirige al admin */}
+          {/* Label */}
           <span
             className="label-caps"
-            onClick={handleLogoClick}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
               marginBottom: 24,
-              cursor: "default",
-              userSelect: "none",
             }}
           >
             <span

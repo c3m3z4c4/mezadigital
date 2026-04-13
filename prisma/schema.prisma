@@ -41,3 +41,58 @@ model Service {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+model Message {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Quote {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  company     String?
+  projectType String?  @default("web")
+  description String
+  budget      String?
+  timeline    String?
+  techStack   String?
+  status      String   @default("pendiente")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  number      String
+  clientName  String
+  clientEmail String?
+  concept     String
+  amount      Float    @default(0)
+  currency    String   @default("MXN")
+  status      String   @default("borrador")
+  dueDate     String?
+  issuedAt    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  date      String
+  time      String?
+  topic     String
+  notes     String?
+  status    String   @default("pendiente")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

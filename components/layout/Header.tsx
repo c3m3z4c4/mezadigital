@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useLangStore } from "@/stores/langStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -17,9 +18,24 @@ const NAV_LINKS = [
 export function Header() {
   const { t, lang, toggle: toggleLang } = useLangStore();
   const { theme, toggle: toggleTheme }  = useThemeStore();
+  const router = useRouter();
   const [scrolled,    setScrolled]    = useState(false);
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [activeHash,  setActiveHash]  = useState("#inicio");
+  const clickCount = useRef(0);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    clickCount.current += 1;
+    if (clickCount.current >= 5) {
+      clickCount.current = 0;
+      router.push("/admin/login");
+      return;
+    }
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+    clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 1500);
+  }, [router]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -77,8 +93,8 @@ export function Header() {
           justifyContent: "space-between",
         }}
       >
-        {/* Logo */}
-        <a href="#inicio" aria-label="Meza Digital" style={{ display: "flex", alignItems: "center" }}>
+        {/* Logo — 5 clics redirige al admin */}
+        <a href="#inicio" aria-label="Meza Digital" onClick={handleLogoClick} style={{ display: "flex", alignItems: "center" }}>
           <Image
             src={logoSrc}
             alt="Meza Digital"
