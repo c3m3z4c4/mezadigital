@@ -57,7 +57,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "meza-auth",
-      partialize: (s) => ({ token: s.token, email: s.email }),
+      storage: typeof window !== "undefined"
+        ? {
+            getItem:    (k) => { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; },
+            setItem:    (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+            removeItem: (k) => localStorage.removeItem(k),
+          }
+        : undefined,
+      partialize: (s: AuthState) => ({ token: s.token, email: s.email }) as AuthState,
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
           if (isTokenExpired(state.token)) {

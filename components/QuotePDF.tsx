@@ -1,14 +1,7 @@
-"use client";
-
 import {
-  Document, Page, Text, View, StyleSheet, Image, Font,
+  Document, Page, Text, View, StyleSheet,
 } from "@react-pdf/renderer";
 import { type Quote, type QuoteItem } from "@/lib/api/crm";
-
-Font.register({
-  family: "Helvetica",
-  fonts: [],
-});
 
 const BLUE   = "#0055CC";
 const INK    = "#0f1923";
@@ -16,7 +9,7 @@ const DIM    = "#4a5568";
 const BORDER = "#d1d9e6";
 const BG     = "#f5f7fa";
 const WHITE  = "#ffffff";
-const IVA    = 0.16;
+export const IVA = 0.16;
 
 const s = StyleSheet.create({
   page:        { backgroundColor: WHITE, padding: "40 50 50 50", fontFamily: "Helvetica", fontSize: 9, color: INK },
@@ -38,8 +31,6 @@ const s = StyleSheet.create({
   clientSub:   { fontSize: 9, color: DIM, marginBottom: 1 },
   clientEmail: { fontSize: 9, color: BLUE },
   desc:        { fontSize: 8.5, color: INK, lineHeight: 1.6 },
-
-  /* table */
   tableHead:   { flexDirection: "row", backgroundColor: INK, padding: "7 10", marginBottom: 1 },
   tableRow:    { flexDirection: "row", padding: "7 10", borderBottom: `1 solid ${BORDER}` },
   tableRowAlt: { flexDirection: "row", padding: "7 10", backgroundColor: BG, borderBottom: `1 solid ${BORDER}` },
@@ -51,7 +42,6 @@ const s = StyleSheet.create({
   colQtyBody:  { width: 40, fontSize: 8.5, color: DIM, textAlign: "center" },
   colUnitBody: { width: 80, fontSize: 8.5, color: DIM, textAlign: "right" },
   colTotalB:   { width: 80, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: INK, textAlign: "right" },
-
   totalsBox:   { marginTop: 2, alignItems: "flex-end" },
   totalRow:    { flexDirection: "row", width: 220, justifyContent: "space-between", paddingVertical: 3 },
   totalLabel:  { fontSize: 8.5, color: DIM },
@@ -59,7 +49,6 @@ const s = StyleSheet.create({
   grandRow:    { flexDirection: "row", width: 220, justifyContent: "space-between", backgroundColor: BLUE, padding: "7 10", marginTop: 4 },
   grandLabel:  { fontSize: 9, fontFamily: "Helvetica-Bold", color: WHITE },
   grandVal:    { fontSize: 9, fontFamily: "Helvetica-Bold", color: WHITE },
-
   footer:      { position: "absolute", bottom: 30, left: 50, right: 50, borderTop: `1 solid ${BORDER}`, paddingTop: 10, flexDirection: "row", justifyContent: "space-between" },
   footerText:  { fontSize: 7, color: DIM },
   disclaimer:  { fontSize: 7, color: DIM, fontStyle: "italic" },
@@ -79,7 +68,7 @@ function quoteNum(id: string) {
 
 interface Props { quote: Quote }
 
-export function QuotePDF({ quote: q }: Props) {
+export function QuotePDFDoc({ quote: q }: Props) {
   const items: QuoteItem[] = Array.isArray(q.items) && q.items.length > 0
     ? q.items
     : q.price
@@ -94,12 +83,9 @@ export function QuotePDF({ quote: q }: Props) {
     <Document>
       <Page size="LETTER" style={s.page}>
 
-        {/* Header */}
         <View style={s.header}>
           <View style={s.logoBox}>
-            <Text style={s.logoText}>
-              meza<Text style={s.logoBlue}>digital</Text>
-            </Text>
+            <Text style={s.logoText}>meza<Text style={s.logoBlue}>digital</Text></Text>
             <Text style={s.logoSub}>Soluciones Digitales</Text>
           </View>
           <View style={s.metaBox}>
@@ -118,7 +104,6 @@ export function QuotePDF({ quote: q }: Props) {
 
         <View style={s.accentLine} />
 
-        {/* Cliente */}
         <View style={s.section}>
           <Text style={s.sLabel}>Para</Text>
           <Text style={s.clientName}>{q.name}</Text>
@@ -126,40 +111,32 @@ export function QuotePDF({ quote: q }: Props) {
           <Text style={s.clientEmail}>{q.email}</Text>
         </View>
 
-        {/* Detalles del proyecto */}
         <View style={s.section}>
           <Text style={s.sLabel}>Detalles del proyecto</Text>
-          {[
-            ["Tipo de proyecto", q.projectType],
-            ["Tech stack",       q.techStack],
-          ].filter(([, v]) => v).map(([k, v]) => (
-            <View key={k} style={s.row}>
-              <Text style={s.fieldKey}>{k}</Text>
-              <Text style={s.fieldVal}>{v}</Text>
-            </View>
-          ))}
+          {[["Tipo de proyecto", q.projectType], ["Tech stack", q.techStack]]
+            .filter(([, v]) => v)
+            .map(([k, v]) => (
+              <View key={k} style={s.row}>
+                <Text style={s.fieldKey}>{k}</Text>
+                <Text style={s.fieldVal}>{v}</Text>
+              </View>
+            ))}
         </View>
 
-        {/* Descripción */}
         <View style={s.section}>
           <Text style={s.sLabel}>Alcance del proyecto</Text>
           <Text style={s.desc}>{q.description}</Text>
         </View>
 
-        {/* Tabla de costos */}
         {items.length > 0 && (
           <View style={s.section}>
             <Text style={s.sLabel}>Desglose de costos</Text>
-
-            {/* Head */}
             <View style={s.tableHead}>
               <Text style={s.colDesc}>Concepto</Text>
               <Text style={s.colQty}>Cant.</Text>
               <Text style={s.colUnit}>Precio unit.</Text>
               <Text style={s.colTotal}>Total</Text>
             </View>
-
-            {/* Rows */}
             {items.map((it, i) => (
               <View key={i} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
                 <Text style={s.colDescBody}>{it.description}</Text>
@@ -168,8 +145,6 @@ export function QuotePDF({ quote: q }: Props) {
                 <Text style={s.colTotalB}>{fmt(it.qty * it.unitPrice)}</Text>
               </View>
             ))}
-
-            {/* Totals */}
             <View style={s.totalsBox}>
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>Subtotal</Text>
@@ -187,7 +162,6 @@ export function QuotePDF({ quote: q }: Props) {
           </View>
         )}
 
-        {/* Notas */}
         {q.notes && (
           <View style={{ ...s.section, backgroundColor: BG, padding: 12, marginTop: 8 }}>
             <Text style={s.sLabel}>Notas adicionales</Text>
@@ -195,11 +169,8 @@ export function QuotePDF({ quote: q }: Props) {
           </View>
         )}
 
-        {/* Footer */}
         <View style={s.footer} fixed>
-          <View>
-            <Text style={s.footerText}>mezadigital.com  ·  contacto@mezadigital.com</Text>
-          </View>
+          <Text style={s.footerText}>mezadigital.com  ·  contacto@mezadigital.com</Text>
           <Text style={s.disclaimer}>* Precios expresados en MXN, más IVA (16%)</Text>
         </View>
 

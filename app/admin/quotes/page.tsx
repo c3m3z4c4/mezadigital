@@ -1,20 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import { useCrmStore } from "@/stores/crmStore";
 import { useAuthStore } from "@/stores/authStore";
 import { type Quote, type QuoteItem } from "@/lib/api/crm";
 import { Plus, Trash2, Pencil, X, Mail, FileText, MessageCircle, Download } from "lucide-react";
-
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then(m => m.PDFDownloadLink),
-  { ssr: false }
-);
-const QuotePDF = dynamic(
-  () => import("@/components/QuotePDF").then(m => m.QuotePDF),
-  { ssr: false }
-);
 
 const STATUS_COLORS: Record<string, string> = {
   pendiente: "#f59e0b",
@@ -32,6 +22,18 @@ const STATUS_LABELS: Record<string, string> = {
 
 const PROJECT_TYPES = ["web", "mobile", "api", "saas", "ecommerce", "desktop", "otro"];
 const TIMELINES = ["1-2 semanas", "1 mes", "2-3 meses", "3-6 meses", "6+ meses", "Por definir"];
+
+async function downloadPDF(quoteId: string, token: string, filename: string) {
+  const res = await fetch(`/api/quotes/${quoteId}/pdf`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return alert("Error al generar el PDF");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 const BUDGETS   = ["< $5,000 MXN", "$5,000–$20,000", "$20,000–$50,000", "$50,000–$100,000", "$100,000+", "Por definir"];
 
 const IVA = 0.16;
@@ -169,20 +171,19 @@ function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
   const [items, setItems] = useState<QuoteItem[]>(
     Array.isArray(initial.items) ? initial.items : []
   );
-  const [price, setPrice] = useState<number>(initial.price ?? 0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
-  const q: Quote = { ...initial, items, price: price || null };
+  const q: Quote = { ...initial, items };
 
   const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await saveQuote({ items, price: price || null }, initial.id, token);
+      await saveQuote({ items, price: subtotal || null }, initial.id, token);
       setSaved(true);
-      onSaved({ ...initial, items, price: price || null });
+      onSaved({ ...initial, items, price: subtotal || null });
     } finally { setSaving(false); }
   }
 
@@ -277,17 +278,19 @@ function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
               }}>
                 <MessageCircle size={14} /> WhatsApp
               </a>
-              <PDFDownloadLink
-                document={<QuotePDF quote={q} />}
-                fileName={pdfFileName}
+              <a
+                href={`/api/quotes/${q.id}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => { e.preventDefault(); downloadPDF(q.id, token, pdfFileName); }}
                 style={{
                   flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   padding: "10px 16px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)",
-                  color: "#10b981", fontSize: 12, fontWeight: 500, textDecoration: "none",
+                  color: "#10b981", fontSize: 12, fontWeight: 500, textDecoration: "none", cursor: "pointer",
                 }}
               >
-                {({ loading }) => <><Download size={14} /> {loading ? "Preparando…" : "Descargar PDF"}</>}
-              </PDFDownloadLink>
+                <Download size={14} /> Descargar PDF
+              </a>
             </div>
           </div>
         </div>
@@ -411,7 +414,7 @@ export default function QuotesPage() {
 
       {showForm && (
         <Modal title={editing ? "Editar propuesta" : "Nueva propuesta"} onClose={() => { setShowForm(false); setEditing(null); }}>
-          <QuoteForm initial={editing} saving={saving} onSave={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} />
+          <QuoteForm initial={editing} saving={saving} token={token} onSave={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} />
         </Modal>
       )}
 
@@ -427,8 +430,8 @@ export default function QuotesPage() {
 }
 
 /* ── Form ───────────────────────────────────────────────────── */
-function QuoteForm({ initial, saving, onSave, onCancel }: {
-  initial: Quote | null; saving: boolean;
+function QuoteForm({ initial, saving, token, onSave, onCancel }: {
+  initial: Quote | null; saving: boolean; token: string;
   onSave: (d: Partial<Quote>) => void; onCancel: () => void;
 }) {
   const [form, setForm] = useState({
@@ -455,9 +458,6 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
   }
 
   const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
-  const pdfQuote: Quote = initial
-    ? { ...initial, ...form, items, price: subtotal || null }
-    : { id: "preview", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...form, items, price: subtotal || null };
 
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -505,18 +505,14 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
 
       <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", paddingTop: 4, flexWrap: "wrap" }}>
         {/* PDF button — only when there's price data and an existing quote */}
-        {initial && subtotal > 0 ? (
-          <PDFDownloadLink
-            document={<QuotePDF quote={pdfQuote} />}
-            fileName={`Cotizacion-MezaDigital-${form.name.replace(/\s+/g, "-")}.pdf`}
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-              background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)",
-              color: "#10b981", fontSize: 11, fontWeight: 500, textDecoration: "none",
-            }}
+        {initial?.id && subtotal > 0 ? (
+          <button
+            type="button"
+            onClick={() => downloadPDF(initial.id, token, `Cotizacion-MezaDigital-${form.name.replace(/\s+/g, "-")}.pdf`)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981", fontSize: 11, fontWeight: 500, cursor: "pointer" }}
           >
-            {({ loading }) => <><Download size={13} /> {loading ? "Preparando…" : "Descargar PDF"}</>}
-          </PDFDownloadLink>
+            <Download size={13} /> Descargar PDF
+          </button>
         ) : <span />}
 
         <div style={{ display: "flex", gap: 8 }}>
