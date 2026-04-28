@@ -166,16 +166,112 @@ function ItemsEditor({ items, onChange }: { items: QuoteItem[]; onChange: (items
   );
 }
 
+/* ── Email Modal ────────────────────────────────────────────── */
+function EmailModal({ quote, token, onClose }: { quote: Quote; token: string; onClose: () => void }) {
+  const [greeting, setGreeting] = useState(
+    `Estimado/a ${quote.name},\n\nEspero que se encuentre muy bien.`
+  );
+  const [to,       setTo]       = useState(quote.email);
+  const [sending,  setSending]  = useState(false);
+  const [sent,     setSent]     = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
+
+  async function handleSend() {
+    setSending(true); setError(null);
+    try {
+      const res = await fetch(`/api/quotes/${quote.id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ greeting, to }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Error ${res.status}`);
+      }
+      setSent(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(6,10,18,0.88)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#0d1421", border: "1px solid rgba(51,133,255,0.2)", width: "100%", maxWidth: 500, display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ padding: "16px 22px", borderBottom: "1px solid rgba(51,133,255,0.14)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Mail size={14} style={{ color: "#3385ff" }} />
+            <span style={{ fontSize: 11, letterSpacing: "0.18em", color: "#e2eaf5", textTransform: "uppercase" }}>Enviar Cotización por Email</span>
+          </div>
+          <button onClick={onClose} style={iconBtn}><X size={14} /></button>
+        </div>
+
+        <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* From */}
+          <FField label="Remitente">
+            <div style={{ ...fieldStyle, color: "#8899aa", cursor: "not-allowed" }}>
+              cmeza@mezadigital.com
+            </div>
+          </FField>
+
+          {/* To */}
+          <FField label="Destinatario">
+            <input
+              type="email" value={to} onChange={e => setTo(e.target.value)}
+              style={fieldStyle}
+            />
+          </FField>
+
+          {/* Greeting */}
+          <FField label="Saludo / Mensaje de introducción">
+            <textarea
+              value={greeting}
+              onChange={e => setGreeting(e.target.value)}
+              rows={4}
+              style={{ ...fieldStyle, resize: "vertical" }}
+            />
+          </FField>
+
+          {/* Info */}
+          <div style={{ fontSize: 10, color: "#4a5568", background: "rgba(51,133,255,0.05)", border: "1px solid rgba(51,133,255,0.1)", padding: "10px 14px" }}>
+            Se adjuntará el PDF de la cotización <strong style={{ color: "#8899aa" }}>{"COT-" + quote.id.slice(-6).toUpperCase()}</strong> para <strong style={{ color: "#8899aa" }}>{quote.name}</strong>.
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 11, color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: "10px 14px" }}>
+              {error}
+            </div>
+          )}
+
+          {sent ? (
+            <div style={{ fontSize: 12, color: "#10b981", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", padding: "12px 16px", textAlign: "center" }}>
+              Email enviado correctamente a {to}
+            </div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={onClose} style={secBtn}>Cancelar</button>
+              <button onClick={handleSend} disabled={sending || !to} style={primaryBtn}>
+                {sending ? "Enviando…" : "Enviar con PDF"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Cotización Modal ───────────────────────────────────────── */
 function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
   quote: Quote; token: string; onClose: () => void; onSaved: (q: Quote) => void;
 }) {
   const { saveQuote } = useCrmStore();
-  const [items, setItems] = useState<QuoteItem[]>(
-    Array.isArray(initial.items) ? initial.items : []
-  );
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved]   = useState(false);
+  const [items,     setItems]     = useState<QuoteItem[]>(Array.isArray(initial.items) ? initial.items : []);
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
 
   const q: Quote = { ...initial, items };
 
@@ -198,6 +294,7 @@ function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
   const pdfFileName  = `Cotizacion-MezaDigital-${q.name.replace(/\s+/g, "-")}.pdf`;
 
   return (
+    <>
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(6,10,18,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflowY: "auto" }}>
       <div style={{ background: "#0d1421", border: "1px solid rgba(51,133,255,0.2)", width: "100%", maxWidth: 700, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
@@ -267,13 +364,13 @@ function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
           <div>
             <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Enviar / Descargar</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <a href={emailHref} style={{
+              <button onClick={() => setShowEmail(true)} style={{
                 flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 padding: "10px 16px", background: "rgba(51,133,255,0.1)", border: "1px solid rgba(51,133,255,0.3)",
-                color: "#3385ff", fontSize: 12, fontWeight: 500, textDecoration: "none",
+                color: "#3385ff", fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}>
                 <Mail size={14} /> Enviar por Email
-              </a>
+              </button>
               <a href={waHref} target="_blank" rel="noopener noreferrer" style={{
                 flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 padding: "10px 16px", background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)",
@@ -299,6 +396,11 @@ function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
         </div>
       </div>
     </div>
+
+    {showEmail && (
+      <EmailModal quote={q} token={token} onClose={() => setShowEmail(false)} />
+    )}
+    </>
   );
 }
 
