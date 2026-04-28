@@ -30,5 +30,5 @@ COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
 
-# Push schema to PostgreSQL (creates tables if not exist) then start
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm start"]
+# Wait for PostgreSQL to be ready, push schema, then start
+CMD ["sh", "-c", "until npx prisma db push --accept-data-loss; do echo 'DB not ready, retrying in 5s...'; sleep 5; done && npm start"]
