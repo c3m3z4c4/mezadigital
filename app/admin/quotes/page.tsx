@@ -27,7 +27,10 @@ async function downloadPDF(quoteId: string, token: string, filename: string) {
   const res = await fetch(`/api/quotes/${quoteId}/pdf`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return alert("Error al generar el PDF");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return alert("Error al generar el PDF: " + (body.error || res.status));
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
