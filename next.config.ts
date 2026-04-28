@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   transpilePackages: ["@react-pdf/renderer"],
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;
