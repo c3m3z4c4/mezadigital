@@ -22,6 +22,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.techStack   !== undefined) data.techStack   = body.techStack;
   if (body.status      !== undefined) data.status      = body.status;
   if (body.notes       !== undefined) data.notes       = body.notes;
+  if (body.price       !== undefined) data.price       = body.price;
+  if (body.items       !== undefined) data.items       = body.items;
   const quote = await db.quote.update({ where: { id }, data });
   return NextResponse.json(quote);
 }

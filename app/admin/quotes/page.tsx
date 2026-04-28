@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useCrmStore } from "@/stores/crmStore";
 import { useAuthStore } from "@/stores/authStore";
-import { type Quote } from "@/lib/api/crm";
-import { Plus, Trash2, Pencil, X, Mail, FileText, MessageCircle, Send } from "lucide-react";
+import { type Quote, type QuoteItem } from "@/lib/api/crm";
+import { Plus, Trash2, Pencil, X, Mail, FileText, MessageCircle, Download } from "lucide-react";
+
+const PDFDownloadLink = dynamic(
+  () => import("@react-pdf/renderer").then(m => m.PDFDownloadLink),
+  { ssr: false }
+);
+const QuotePDF = dynamic(
+  () => import("@/components/QuotePDF").then(m => m.QuotePDF),
+  { ssr: false }
+);
 
 const STATUS_COLORS: Record<string, string> = {
   pendiente: "#f59e0b",
@@ -24,9 +34,18 @@ const PROJECT_TYPES = ["web", "mobile", "api", "saas", "ecommerce", "desktop", "
 const TIMELINES = ["1-2 semanas", "1 mes", "2-3 meses", "3-6 meses", "6+ meses", "Por definir"];
 const BUDGETS   = ["< $5,000 MXN", "$5,000–$20,000", "$20,000–$50,000", "$50,000–$100,000", "$100,000+", "Por definir"];
 
+const IVA = 0.16;
+
 function timeStr(d: string) { return new Date(d).toLocaleDateString("es-MX"); }
+function fmt(n: number) { return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function buildEmailBody(q: Quote) {
+  const items: QuoteItem[] = Array.isArray(q.items) ? q.items : [];
+  const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+  const total    = subtotal * (1 + IVA);
+  const priceBlock = items.length > 0
+    ? `\nDESGLOSE DE COSTOS:\n${items.map(it => `  • ${it.description}: ${fmt(it.qty * it.unitPrice)}`).join("\n")}\n\nSubtotal: ${fmt(subtotal)}\nIVA (16%): ${fmt(subtotal * IVA)}\nTotal: ${fmt(total)}\n\n* Precios expresados en MXN, más IVA (16%).`
+    : q.price ? `\nPrecio total: ${fmt(q.price)} + IVA (16%)` : "";
   return `Estimado/a ${q.name},
 
 Gracias por contactarnos. A continuación encontrará la cotización para su proyecto.
@@ -37,15 +56,15 @@ COTIZACIÓN — MEZA DIGITAL
 
 Cliente: ${q.name}${q.company ? ` · ${q.company}` : ""}
 Tipo de proyecto: ${q.projectType || "Web"}
-${q.budget ? `Presupuesto estimado: ${q.budget}` : ""}
-${q.timeline ? `Tiempo estimado: ${q.timeline}` : ""}
+${q.timeline ? `Tiempo de entrega: ${q.timeline}` : ""}
 ${q.techStack ? `Tecnologías: ${q.techStack}` : ""}
 
 Descripción:
 ${q.description}
+${priceBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para proceder o resolver dudas, responda este correo o contáctenos.
+Para proceder o resolver dudas, responda este correo.
 
 Equipo Meza Digital
 contacto@mezadigital.com
@@ -53,25 +72,231 @@ https://mezadigital.com`;
 }
 
 function buildWhatsAppText(q: Quote) {
-  const lines = [
+  const items: QuoteItem[] = Array.isArray(q.items) ? q.items : [];
+  const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+  const total    = subtotal * (1 + IVA);
+  const priceBlock = items.length > 0
+    ? [``, `💰 *Desglose:*`, ...items.map(it => `  • ${it.description}: ${fmt(it.qty * it.unitPrice)}`), ``, `*Total (+ IVA 16%): ${fmt(total)}*`, `_Precios expresados en MXN, más IVA._`]
+    : q.price ? [``, `💰 *Precio: ${fmt(q.price)} + IVA (16%)*`] : [];
+  return [
     `Hola ${q.name.split(" ")[0]}, soy del equipo *Meza Digital*. 👋`,
     ``,
     `Te comparto la cotización para tu proyecto *${q.projectType || "web"}*:`,
     ``,
     `📋 *Descripción:*`,
     q.description,
-    ``,
-    q.budget    ? `💰 *Presupuesto estimado:* ${q.budget}` : "",
-    q.timeline  ? `⏱ *Tiempo estimado:* ${q.timeline}` : "",
+    q.timeline ? `\n⏱ *Tiempo estimado:* ${q.timeline}` : "",
     q.techStack ? `🛠 *Tecnologías:* ${q.techStack}` : "",
+    ...priceBlock,
     ``,
     `Cualquier duda estamos a tus órdenes. 🙌`,
-    ``,
     `*Meza Digital* — https://mezadigital.com`,
-  ].filter(l => l !== null && l !== undefined && !(l === "" && false));
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  ].filter(Boolean).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/* ── Line items editor ─────────────────────────────────── */
+function ItemsEditor({ items, onChange }: { items: QuoteItem[]; onChange: (items: QuoteItem[]) => void }) {
+  const add = () => onChange([...items, { description: "", qty: 1, unitPrice: 0 }]);
+  const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
+  const update = (i: number, field: keyof QuoteItem, val: string | number) =>
+    onChange(items.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
+
+  const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {/* Header */}
+      {items.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 120px 32px", gap: 6 }}>
+          {["Concepto", "Cant.", "Precio unit.", ""].map(h => (
+            <span key={h} style={{ fontSize: 8.5, color: "#4a5568", letterSpacing: "0.15em", textTransform: "uppercase" }}>{h}</span>
+          ))}
+        </div>
+      )}
+      {items.map((it, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 120px 32px", gap: 6, alignItems: "center" }}>
+          <input
+            value={it.description}
+            onChange={e => update(i, "description", e.target.value)}
+            placeholder="Descripción del concepto"
+            style={fieldStyle}
+          />
+          <input
+            type="number" min={1} value={it.qty}
+            onChange={e => update(i, "qty", Math.max(1, Number(e.target.value)))}
+            style={fieldStyle}
+          />
+          <input
+            type="number" min={0} step={100} value={it.unitPrice}
+            onChange={e => update(i, "unitPrice", Number(e.target.value))}
+            placeholder="0.00"
+            style={fieldStyle}
+          />
+          <button onClick={() => remove(i)} style={{ ...iconBtn, color: "#ef4444" }}><X size={12} /></button>
+        </div>
+      ))}
+
+      <button onClick={add} type="button" style={{ ...secBtn, fontSize: 10, padding: "5px 10px", alignSelf: "flex-start" }}>
+        + Agregar concepto
+      </button>
+
+      {items.length > 0 && (
+        <div style={{ background: "rgba(51,133,255,0.06)", border: "1px solid rgba(51,133,255,0.12)", padding: "10px 14px", marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#8899aa" }}>Subtotal</span>
+            <span style={{ fontSize: 10, color: "#e2eaf5" }}>{fmt(subtotal)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#8899aa" }}>IVA (16%)</span>
+            <span style={{ fontSize: 10, color: "#8899aa" }}>{fmt(subtotal * IVA)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 4, borderTop: "1px solid rgba(51,133,255,0.12)" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#3385ff" }}>Total</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#3385ff" }}>{fmt(subtotal * (1 + IVA))}</span>
+          </div>
+          <span style={{ fontSize: 9, color: "#4a5568", fontStyle: "italic" }}>* Precios expresados en MXN, más IVA (16%).</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Cotización Modal ───────────────────────────────────────── */
+function CotizacionModal({ quote: initial, token, onClose, onSaved }: {
+  quote: Quote; token: string; onClose: () => void; onSaved: (q: Quote) => void;
+}) {
+  const { saveQuote } = useCrmStore();
+  const [items, setItems] = useState<QuoteItem[]>(
+    Array.isArray(initial.items) ? initial.items : []
+  );
+  const [price, setPrice] = useState<number>(initial.price ?? 0);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const q: Quote = { ...initial, items, price: price || null };
+
+  const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await saveQuote({ items, price: price || null }, initial.id, token);
+      setSaved(true);
+      onSaved({ ...initial, items, price: price || null });
+    } finally { setSaving(false); }
+  }
+
+  const emailSubject = encodeURIComponent(`Cotización — Proyecto ${q.projectType || "Web"} | Meza Digital`);
+  const emailBody    = encodeURIComponent(buildEmailBody(q));
+  const waText       = encodeURIComponent(buildWhatsAppText(q));
+  const emailHref    = `mailto:${q.email}?subject=${emailSubject}&body=${emailBody}`;
+  const waHref       = `https://wa.me/?text=${waText}`;
+  const pdfFileName  = `Cotizacion-MezaDigital-${q.name.replace(/\s+/g, "-")}.pdf`;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(6,10,18,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflowY: "auto" }}>
+      <div style={{ background: "#0d1421", border: "1px solid rgba(51,133,255,0.2)", width: "100%", maxWidth: 700, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid rgba(51,133,255,0.14)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 11, letterSpacing: "0.18em", color: "#e2eaf5", textTransform: "uppercase" }}>Cotización</span>
+            {saved && <span style={{ fontSize: 10, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "2px 8px", border: "1px solid rgba(16,185,129,0.3)" }}>Guardada</span>}
+          </div>
+          <button onClick={onClose} style={iconBtn}><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Cliente */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: "#e2eaf5", letterSpacing: "-0.02em" }}>meza<span style={{ color: "#3385ff" }}>digital</span></div>
+              <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.14em", marginTop: 2 }}>COTIZACIÓN DE PROYECTO</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "#4a5568" }}>Para</div>
+              <div style={{ fontSize: 13, color: "#e2eaf5", fontWeight: 600 }}>{q.name}</div>
+              {q.company && <div style={{ fontSize: 11, color: "#8899aa" }}>{q.company}</div>}
+              <div style={{ fontSize: 11, color: "#3385ff" }}>{q.email}</div>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: "rgba(51,133,255,0.14)" }} />
+
+          {/* Proyecto info */}
+          <div style={{ background: "#111827", border: "1px solid rgba(51,133,255,0.12)", padding: 14, display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {[
+              ["Tipo", q.projectType],
+              ["Tiempo", q.timeline],
+              ["Tech", q.techStack],
+            ].filter(([, v]) => v).map(([k, v]) => (
+              <div key={k}>
+                <div style={{ fontSize: 8, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 2 }}>{k}</div>
+                <div style={{ fontSize: 12, color: "#e2eaf5" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6 }}>Alcance</div>
+            <p style={{ fontSize: 12, color: "#8899aa", lineHeight: 1.7, margin: 0 }}>{q.description}</p>
+          </div>
+
+          <div style={{ height: 1, background: "rgba(51,133,255,0.14)" }} />
+
+          {/* Desglose de costos */}
+          <div>
+            <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Desglose de costos</div>
+            <ItemsEditor items={items} onChange={setItems} />
+          </div>
+
+          {/* Guardar */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={handleSave} disabled={saving} style={primaryBtn}>
+              {saving ? "Guardando…" : "Guardar costos"}
+            </button>
+          </div>
+
+          <div style={{ height: 1, background: "rgba(51,133,255,0.14)" }} />
+
+          {/* Acciones de envío */}
+          <div>
+            <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Enviar / Descargar</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <a href={emailHref} style={{
+                flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "10px 16px", background: "rgba(51,133,255,0.1)", border: "1px solid rgba(51,133,255,0.3)",
+                color: "#3385ff", fontSize: 12, fontWeight: 500, textDecoration: "none",
+              }}>
+                <Mail size={14} /> Enviar por Email
+              </a>
+              <a href={waHref} target="_blank" rel="noopener noreferrer" style={{
+                flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "10px 16px", background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)",
+                color: "#25d366", fontSize: 12, fontWeight: 500, textDecoration: "none",
+              }}>
+                <MessageCircle size={14} /> WhatsApp
+              </a>
+              <PDFDownloadLink
+                document={<QuotePDF quote={q} />}
+                fileName={pdfFileName}
+                style={{
+                  flex: 1, minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "10px 16px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)",
+                  color: "#10b981", fontSize: 12, fontWeight: 500, textDecoration: "none",
+                }}
+              >
+                {({ loading }) => <><Download size={14} /> {loading ? "Preparando…" : "Descargar PDF"}</>}
+              </PDFDownloadLink>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main page ─────────────────────────────────────────────── */
 export default function QuotesPage() {
   const token = useAuthStore(s => s.token)!;
   const { quotes, loading, saving, fetchAll, saveQuote, deleteQuote, setQuoteStatus } = useCrmStore();
@@ -120,64 +345,68 @@ export default function QuotesPage() {
 
       {/* Table */}
       <div style={{ background: "#0d1421", border: "1px solid rgba(51,133,255,0.14)", overflow: "hidden" }}>
-        {/* Header row */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "220px 1fr 100px 130px auto",
-          padding: "8px 20px", borderBottom: "1px solid rgba(51,133,255,0.14)",
-        }}>
-          {["Cliente", "Proyecto", "Fecha", "Estado", ""].map((h, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 90px 90px 130px auto", padding: "8px 20px", borderBottom: "1px solid rgba(51,133,255,0.14)" }}>
+          {["Cliente", "Proyecto", "Precio", "Fecha", "Estado", ""].map((h, i) => (
             <span key={i} style={{ fontSize: 9, letterSpacing: "0.18em", color: "#4a5568", textTransform: "uppercase" }}>{h}</span>
           ))}
         </div>
 
-        {filtered.map((q, i) => (
-          <div key={q.id} style={{
-            display: "grid", gridTemplateColumns: "220px 1fr 100px 130px auto",
-            alignItems: "start", gap: 16, padding: "14px 20px",
-            borderBottom: i < filtered.length - 1 ? "1px solid rgba(51,133,255,0.08)" : "none",
-          }}>
-            {/* Cliente */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: "#e2eaf5", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.name}</div>
-              <div style={{ fontSize: 11, color: "#4a5568", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.email}</div>
-              {q.company && <div style={{ fontSize: 10, color: "#4a5568", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.company}</div>}
-            </div>
+        {filtered.map((q, i) => {
+          const items: QuoteItem[] = Array.isArray(q.items) ? q.items : [];
+          const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+          const priceDisplay = items.length > 0
+            ? fmt(subtotal * (1 + IVA))
+            : q.price ? fmt(q.price * (1 + IVA)) : "—";
 
-            {/* Proyecto */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: "#8899aa", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.5 }}>
-                {q.description}
+          return (
+            <div key={q.id} style={{
+              display: "grid", gridTemplateColumns: "220px 1fr 90px 90px 130px auto",
+              alignItems: "start", gap: 16, padding: "14px 20px",
+              borderBottom: i < filtered.length - 1 ? "1px solid rgba(51,133,255,0.08)" : "none",
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: "#e2eaf5", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.name}</div>
+                <div style={{ fontSize: 11, color: "#4a5568", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.email}</div>
+                {q.company && <div style={{ fontSize: 10, color: "#4a5568", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.company}</div>}
               </div>
-              <div style={{ fontSize: 10, color: "#4a5568", marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[q.projectType, q.budget, q.timeline].filter(Boolean).map((tag, idx) => (
-                  <span key={idx} style={{ background: "rgba(51,133,255,0.08)", padding: "1px 6px", border: "1px solid rgba(51,133,255,0.12)" }}>{tag}</span>
-                ))}
+
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: "#8899aa", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.5 }}>
+                  {q.description}
+                </div>
+                <div style={{ fontSize: 10, color: "#4a5568", marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[q.projectType, q.timeline].filter(Boolean).map((tag, idx) => (
+                    <span key={idx} style={{ background: "rgba(51,133,255,0.08)", padding: "1px 6px", border: "1px solid rgba(51,133,255,0.12)" }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ paddingTop: 2 }}>
+                <div style={{ fontSize: 12, color: items.length > 0 || q.price ? "#10b981" : "#4a5568", fontWeight: 500 }}>{priceDisplay}</div>
+                {(items.length > 0 || q.price) && <div style={{ fontSize: 9, color: "#4a5568", marginTop: 1 }}>+ IVA</div>}
+              </div>
+
+              <span style={{ fontSize: 11, color: "#4a5568", paddingTop: 2 }}>{timeStr(q.createdAt)}</span>
+
+              <select
+                value={q.status}
+                onChange={e => setQuoteStatus(q.id, e.target.value, token)}
+                style={{
+                  background: "rgba(51,133,255,0.08)", border: `1px solid ${STATUS_COLORS[q.status] || "#8899aa"}40`,
+                  color: STATUS_COLORS[q.status] || "#8899aa", fontSize: 10, padding: "4px 8px", cursor: "pointer", width: "100%",
+                }}
+              >
+                {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+
+              <div style={{ display: "flex", gap: 2, paddingTop: 1 }}>
+                <button onClick={() => setCotiz(q)} style={{ ...iconBtn, color: "#10b981" }} title="Cotización / PDF"><FileText size={14} /></button>
+                <button onClick={() => { setEditing(q); setShowForm(true); }} style={iconBtn} title="Editar"><Pencil size={13} /></button>
+                <button onClick={() => handleDelete(q.id)} style={{ ...iconBtn, color: "#ef4444" }} title="Eliminar"><Trash2 size={13} /></button>
               </div>
             </div>
-
-            {/* Fecha */}
-            <span style={{ fontSize: 11, color: "#4a5568", paddingTop: 2 }}>{timeStr(q.createdAt)}</span>
-
-            {/* Estado */}
-            <select
-              value={q.status}
-              onChange={e => setQuoteStatus(q.id, e.target.value, token)}
-              style={{
-                background: "rgba(51,133,255,0.08)", border: `1px solid ${STATUS_COLORS[q.status] || "#8899aa"}40`,
-                color: STATUS_COLORS[q.status] || "#8899aa", fontSize: 10, padding: "4px 8px", cursor: "pointer", width: "100%",
-              }}
-            >
-              {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-
-            {/* Acciones */}
-            <div style={{ display: "flex", gap: 2, paddingTop: 1 }}>
-              <button onClick={() => setCotiz(q)} style={{ ...iconBtn, color: "#10b981" }} title="Crear cotización"><FileText size={14} /></button>
-              <button onClick={() => { setEditing(q); setShowForm(true); }} style={iconBtn} title="Editar"><Pencil size={13} /></button>
-              <button onClick={() => handleDelete(q.id)} style={{ ...iconBtn, color: "#ef4444" }} title="Eliminar"><Trash2 size={13} /></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showForm && (
@@ -187,115 +416,12 @@ export default function QuotesPage() {
       )}
 
       {cotiz && (
-        <CotizacionModal quote={cotiz} onClose={() => setCotiz(null)} />
+        <CotizacionModal
+          quote={cotiz} token={token}
+          onClose={() => setCotiz(null)}
+          onSaved={updated => setCotiz(updated)}
+        />
       )}
-    </div>
-  );
-}
-
-/* ── Cotización Modal ───────────────────────────────────────── */
-function CotizacionModal({ quote: q, onClose }: { quote: Quote; onClose: () => void }) {
-  const emailSubject = encodeURIComponent(`Cotización — Proyecto ${q.projectType || "Web"} | Meza Digital`);
-  const emailBody    = encodeURIComponent(buildEmailBody(q));
-  const waText       = encodeURIComponent(buildWhatsAppText(q));
-
-  const emailHref = `mailto:${q.email}?subject=${emailSubject}&body=${emailBody}`;
-  const waHref    = `https://wa.me/?text=${waText}`;
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(6,10,18,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflowY: "auto" }}>
-      <div style={{ background: "#0d1421", border: "1px solid rgba(51,133,255,0.2)", width: "100%", maxWidth: 640, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        {/* Header */}
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid rgba(51,133,255,0.14)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 11, letterSpacing: "0.18em", color: "#e2eaf5", textTransform: "uppercase" }}>Cotización</span>
-          <button onClick={onClose} style={iconBtn}><X size={15} /></button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Branding */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: "#e2eaf5", letterSpacing: "-0.02em" }}>meza<span style={{ color: "#3385ff" }}>digital</span></div>
-              <div style={{ fontSize: 10, color: "#4a5568", letterSpacing: "0.12em", marginTop: 2 }}>COTIZACIÓN DE PROYECTO</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, color: "#4a5568" }}>Fecha</div>
-              <div style={{ fontSize: 12, color: "#8899aa" }}>{new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</div>
-            </div>
-          </div>
-
-          <div style={{ height: 1, background: "rgba(51,133,255,0.14)" }} />
-
-          {/* Cliente */}
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#4a5568", textTransform: "uppercase", marginBottom: 8 }}>Para</div>
-            <div style={{ fontSize: 14, color: "#e2eaf5", fontWeight: 500 }}>{q.name}</div>
-            {q.company && <div style={{ fontSize: 12, color: "#8899aa" }}>{q.company}</div>}
-            <div style={{ fontSize: 12, color: "#3385ff" }}>{q.email}</div>
-          </div>
-
-          {/* Detalles */}
-          <div style={{ background: "#111827", border: "1px solid rgba(51,133,255,0.12)", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#4a5568", textTransform: "uppercase", marginBottom: 4 }}>Detalles del proyecto</div>
-            {[
-              ["Tipo de proyecto", q.projectType],
-              ["Presupuesto estimado", q.budget],
-              ["Tiempo de entrega", q.timeline],
-              ["Tecnologías", q.techStack],
-            ].filter(([, v]) => v).map(([label, val]) => (
-              <div key={label} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-                <span style={{ fontSize: 10, color: "#4a5568", minWidth: 140, flexShrink: 0 }}>{label}</span>
-                <span style={{ fontSize: 12, color: "#e2eaf5" }}>{val}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Descripción */}
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#4a5568", textTransform: "uppercase", marginBottom: 8 }}>Alcance del proyecto</div>
-            <p style={{ fontSize: 13, color: "#8899aa", lineHeight: 1.7, margin: 0 }}>{q.description}</p>
-          </div>
-
-          {q.notes && (
-            <div style={{ background: "rgba(243,170,47,0.06)", border: "1px solid rgba(243,170,47,0.2)", padding: "10px 14px" }}>
-              <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#f59e0b", textTransform: "uppercase", marginBottom: 4 }}>Notas internas</div>
-              <p style={{ fontSize: 12, color: "#8899aa", margin: 0 }}>{q.notes}</p>
-            </div>
-          )}
-
-          <div style={{ height: 1, background: "rgba(51,133,255,0.14)" }} />
-
-          {/* Acciones de envío */}
-          <div>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#4a5568", textTransform: "uppercase", marginBottom: 12 }}>Enviar cotización</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <a
-                href={emailHref}
-                style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  padding: "10px 16px", background: "rgba(51,133,255,0.1)", border: "1px solid rgba(51,133,255,0.3)",
-                  color: "#3385ff", fontSize: 12, fontWeight: 500, textDecoration: "none", cursor: "pointer",
-                }}
-              >
-                <Mail size={14} /> Enviar por Email
-              </a>
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  padding: "10px 16px", background: "rgba(37,211,102,0.1)", border: "1px solid rgba(37,211,102,0.3)",
-                  color: "#25d366", fontSize: 12, fontWeight: 500, textDecoration: "none", cursor: "pointer",
-                }}
-              >
-                <MessageCircle size={14} /> Enviar por WhatsApp
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -322,8 +448,8 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
   return (
     <form onSubmit={e => { e.preventDefault(); onSave(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <FField label="Nombre"><input value={form.name}    onChange={f("name")}    style={fieldStyle} required /></FField>
-        <FField label="Email"><input  value={form.email}   onChange={f("email")}   style={fieldStyle} required type="email" /></FField>
+        <FField label="Nombre"><input value={form.name}  onChange={f("name")}  style={fieldStyle} required /></FField>
+        <FField label="Email"><input  value={form.email} onChange={f("email")} style={fieldStyle} required type="email" /></FField>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FField label="Empresa (opcional)"><input value={form.company} onChange={f("company")} style={fieldStyle} /></FField>
@@ -337,7 +463,7 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
         <textarea value={form.description} onChange={f("description")} style={{ ...fieldStyle, resize: "vertical" }} rows={3} required />
       </FField>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <FField label="Presupuesto estimado">
+        <FField label="Presupuesto referencial">
           <select value={form.budget} onChange={f("budget")} style={fieldStyle}>
             <option value="">—</option>
             {BUDGETS.map(b => <option key={b} value={b}>{b}</option>)}

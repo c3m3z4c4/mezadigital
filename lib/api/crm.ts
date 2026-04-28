@@ -12,6 +12,12 @@ export interface Message {
   createdAt: string;
 }
 
+export interface QuoteItem {
+  description: string;
+  qty: number;
+  unitPrice: number;
+}
+
 export interface Quote {
   id: string;
   name: string;
@@ -24,6 +30,8 @@ export interface Quote {
   techStack?: string;
   status: string;
   notes?: string;
+  price?: number | null;
+  items?: QuoteItem[] | null;
   createdAt: string;
   updatedAt: string;
 }
