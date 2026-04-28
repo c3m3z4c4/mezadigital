@@ -18,7 +18,7 @@ const R      = L + W;       // right edge
 const COL_DESC  = W - 232;  // description column
 const COL_QTY   = 42;
 const COL_UNIT  = 90;
-const COL_TOT   = 90;       // must add up to W
+const COL_TOT   = W - COL_DESC - COL_QTY - COL_UNIT;  // = 100, must add up to W
 const ROW_H     = 22;
 
 function fmt(n: number) {
@@ -172,25 +172,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
       y += 8;
 
-      // Totals block (right-aligned, 220px wide)
-      const totW  = 220;
-      const totX  = R - totW;
-      const lineH = 18;
+      // Totals block — right edge aligns with Total column right edge (R - 8)
+      const totColX = L + COL_DESC + COL_QTY + COL_UNIT;  // = 462, start of Total column
+      const totW    = R - totColX;                          // = 100, same width as Total column
+      const amtW    = totW - 8;                             // inner padding
+      const lblX    = totColX - 110;
+      const lineH   = 18;
 
       doc.font("Helvetica").fontSize(8.5);
       // Subtotal
-      doc.fillColor(DIM).text("Subtotal",  totX,        y, { width: 110, lineBreak: false });
-      doc.fillColor(INK).text(fmt(subtotal), totX + 110, y, { width: totW - 110, align: "right", lineBreak: false });
+      doc.fillColor(DIM).text("Subtotal",    lblX,     y, { width: 110,  lineBreak: false });
+      doc.fillColor(INK).text(fmt(subtotal), totColX,  y, { width: amtW, align: "right", lineBreak: false });
       y += lineH;
       // IVA
-      doc.fillColor(DIM).text("IVA (16%)", totX,        y, { width: 110, lineBreak: false });
-      doc.fillColor(INK).text(fmt(iva),     totX + 110, y, { width: totW - 110, align: "right", lineBreak: false });
+      doc.fillColor(DIM).text("IVA (16%)",  lblX,     y, { width: 110,  lineBreak: false });
+      doc.fillColor(INK).text(fmt(iva),      totColX,  y, { width: amtW, align: "right", lineBreak: false });
       y += lineH + 2;
       // Total (blue bg)
-      doc.rect(totX, y, totW, 24).fill(BLUE);
+      const grandW = totW + 110;
+      const grandX = lblX;
+      doc.rect(grandX, y, grandW, 24).fill(BLUE);
       doc.font("Helvetica-Bold").fontSize(9).fillColor("#ffffff");
-      doc.text("TOTAL",     totX + 10,        y + 8, { width: 80,            lineBreak: false });
-      doc.text(fmt(total),  totX + 90,         y + 8, { width: totW - 98, align: "right", lineBreak: false });
+      doc.text("TOTAL",    grandX + 10, y + 8, { width: 80,   lineBreak: false });
+      doc.text(fmt(total), grandX + 90, y + 8, { width: grandW - 98, align: "right", lineBreak: false });
       y += 34;
     }
 
