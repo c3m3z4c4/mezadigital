@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
 import { db } from "@/lib/db";
 import { verifyToken, extractBearerToken } from "@/lib/auth";
 import type { QuoteItem } from "@/lib/api/crm";
 
-const BLUE    = "#0055CC";
-const INK     = "#0f1923";
-const DIM     = "#8899aa";
-const BORDER  = "#d1d9e6";
-const BG      = "#f5f7fa";
-const IVA     = 0.16;
-const W       = 512; // usable width (612 - 50 - 50)
+const BLUE   = "#0055CC";
+const INK    = "#0f1923";
+const DIM    = "#8899aa";
+const BORDER = "#d1d9e6";
+const BG     = "#f5f7fa";
+const IVA    = 0.16;
+const L      = 50;          // left margin
+const W      = 512;         // usable width  (612 − 50 − 50)
+const R      = L + W;       // right edge
+
+// Column widths for the cost table
+const COL_DESC  = W - 232;  // description column
+const COL_QTY   = 42;
+const COL_UNIT  = 90;
+const COL_TOT   = 90;       // must add up to W
+const ROW_H     = 22;
 
 function fmt(n: number) {
   return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function quoteNum(id: string) { return "COT-" + id.slice(-6).toUpperCase(); }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -40,137 +49,173 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const PDFDocument = require("pdfkit");
-    const doc = new PDFDocument({ size: "LETTER", margins: { top: 40, bottom: 60, left: 50, right: 50 }, autoFirstPage: true });
+    const doc = new PDFDocument({
+      size: "LETTER",
+      margins: { top: 40, bottom: 60, left: L, right: L },
+      autoFirstPage: true,
+    });
 
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
-
     const endPromise = new Promise<void>((resolve, reject) => {
       doc.on("end", resolve);
       doc.on("error", reject);
     });
 
-    const L = 50;   // left margin
-    const R = 562;  // right edge
+    // ── HEADER ────────────────────────────────────────────────────────
+    const logoPath = path.join(process.cwd(), "public", "assets", "images", "Logo@2x.png");
+    // Logo: 750×388 → scale to width 140 (height ≈ 72)
+    doc.image(logoPath, L, 36, { width: 140 });
 
-    // ── Header ──────────────────────────────────────────────────
-    doc.font("Helvetica-Bold").fontSize(22).fillColor(INK).text("meza", L, 40, { continued: true });
-    doc.fillColor(BLUE).text("digital");
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("SOLUCIONES DIGITALES", L, 66);
-
-    // Meta right column
-    const metaX = 380;
-    let metaY = 40;
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("COTIZACIÓN", metaX, metaY, { width: R - metaX, align: "right" });
-    metaY += 11;
-    doc.font("Helvetica-Bold").fontSize(12).fillColor(BLUE).text(quoteNum(raw.id), metaX, metaY, { width: R - metaX, align: "right" });
-    metaY += 18;
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("FECHA", metaX, metaY, { width: R - metaX, align: "right" });
-    metaY += 11;
-    doc.fontSize(9).fillColor(INK).text(new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }), metaX, metaY, { width: R - metaX, align: "right" });
+    // Right column meta
+    const metaX = 370;
+    let metaY = 36;
+    doc.font("Helvetica").fontSize(7).fillColor(DIM)
+       .text("COTIZACIÓN", metaX, metaY, { width: R - metaX, align: "right" });
+    metaY += 12;
+    doc.font("Helvetica-Bold").fontSize(13).fillColor(BLUE)
+       .text(quoteNum(raw.id), metaX, metaY, { width: R - metaX, align: "right" });
+    metaY += 20;
+    doc.font("Helvetica").fontSize(7).fillColor(DIM)
+       .text("FECHA", metaX, metaY, { width: R - metaX, align: "right" });
+    metaY += 12;
+    doc.font("Helvetica").fontSize(9).fillColor(INK)
+       .text(new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }),
+         metaX, metaY, { width: R - metaX, align: "right" });
     if (raw.timeline) {
-      metaY += 16;
-      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("TIEMPO ESTIMADO", metaX, metaY, { width: R - metaX, align: "right" });
-      metaY += 11;
-      doc.fontSize(9).fillColor(INK).text(raw.timeline, metaX, metaY, { width: R - metaX, align: "right" });
+      metaY += 18;
+      doc.font("Helvetica").fontSize(7).fillColor(DIM)
+         .text("TIEMPO ESTIMADO", metaX, metaY, { width: R - metaX, align: "right" });
+      metaY += 12;
+      doc.font("Helvetica").fontSize(9).fillColor(INK)
+         .text(raw.timeline, metaX, metaY, { width: R - metaX, align: "right" });
     }
 
-    // Blue accent line
-    let y = 90;
+    // Blue accent line (below the taller of logo vs meta block)
+    let y = Math.max(metaY + 20, 110);
     doc.moveTo(L, y).lineTo(R, y).lineWidth(2).strokeColor(BLUE).stroke();
     y += 20;
 
-    // ── Para ──────────────────────────────────────────────────────
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("PARA", L, y); y += 14;
-    doc.font("Helvetica-Bold").fontSize(14).fillColor(INK).text(raw.name, L, y); y += 18;
-    if (raw.company) { doc.font("Helvetica").fontSize(9).fillColor(DIM).text(raw.company, L, y); y += 13; }
-    doc.font("Helvetica").fontSize(9).fillColor(BLUE).text(raw.email, L, y); y += 22;
+    // ── PARA ──────────────────────────────────────────────────────────
+    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("PARA", L, y);
+    y += 14;
+    doc.font("Helvetica-Bold").fontSize(14).fillColor(INK).text(raw.name, L, y);
+    y += 20;
+    if (raw.company) {
+      doc.font("Helvetica").fontSize(9).fillColor(DIM).text(raw.company, L, y);
+      y += 14;
+    }
+    doc.font("Helvetica").fontSize(9).fillColor(BLUE).text(raw.email, L, y);
+    y += 22;
 
-    // ── Detalles del proyecto ──────────────────────────────────────
+    // ── DETALLES DEL PROYECTO ─────────────────────────────────────────
     const details: [string, string][] = [
       ["Tipo de proyecto", raw.projectType ?? ""],
       ["Tech stack",       raw.techStack   ?? ""],
     ].filter(([, v]) => v) as [string, string][];
 
     if (details.length > 0) {
-      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("DETALLES DEL PROYECTO", L, y); y += 12;
+      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("DETALLES DEL PROYECTO", L, y);
+      y += 13;
       for (const [k, v] of details) {
-        doc.font("Helvetica").fontSize(8.5).fillColor(DIM).text(k, L, y, { width: 130 });
-        doc.fillColor(INK).text(v, L + 135, y, { width: W - 135 });
-        y += 13;
+        const vWidth = W - 140;
+        const rowH = Math.max(13, doc.heightOfString(v, { width: vWidth, fontSize: 8.5 }));
+        doc.font("Helvetica").fontSize(8.5).fillColor(DIM).text(k, L, y, { width: 130, lineBreak: false });
+        doc.fillColor(INK).text(v, L + 140, y, { width: vWidth });
+        y += rowH + 4;
       }
-      y += 8;
+      y += 6;
     }
 
-    // ── Alcance ────────────────────────────────────────────────────
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("ALCANCE DEL PROYECTO", L, y); y += 12;
-    const descHeight = doc.heightOfString(raw.description, { width: W, lineGap: 3 });
-    doc.font("Helvetica").fontSize(8.5).fillColor(INK).text(raw.description, L, y, { width: W, lineGap: 3 });
-    y += descHeight + 18;
+    // ── ALCANCE DEL PROYECTO ──────────────────────────────────────────
+    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("ALCANCE DEL PROYECTO", L, y);
+    y += 13;
+    const descH = doc.heightOfString(raw.description, { width: W, lineGap: 2 });
+    doc.font("Helvetica").fontSize(8.5).fillColor(INK).text(raw.description, L, y, { width: W, lineGap: 2 });
+    y += descH + 20;
 
-    // ── Tabla de costos ────────────────────────────────────────────
+    // ── DESGLOSE DE COSTOS ────────────────────────────────────────────
     if (items.length > 0) {
-      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("DESGLOSE DE COSTOS", L, y); y += 10;
+      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("DESGLOSE DE COSTOS", L, y);
+      y += 11;
 
-      // Table header
-      doc.rect(L, y, W, 22).fill(INK);
+      // Header row
+      doc.rect(L, y, W, ROW_H).fill(INK);
       doc.font("Helvetica-Bold").fontSize(8).fillColor("#ffffff");
-      doc.text("Concepto",     L + 8,       y + 7, { width: W - 220 - 8 });
-      doc.text("Cant.",        L + W - 212, y + 7, { width: 40, align: "center" });
-      doc.text("Precio unit.", L + W - 165, y + 7, { width: 80, align: "right" });
-      doc.text("Total",        L + W - 80,  y + 7, { width: 72, align: "right" });
-      y += 23;
+      doc.text("Concepto",     L + 8,                    y + 7, { width: COL_DESC - 8,     lineBreak: false });
+      doc.text("Cant.",        L + COL_DESC,              y + 7, { width: COL_QTY,  align: "center", lineBreak: false });
+      doc.text("Precio unit.", L + COL_DESC + COL_QTY,   y + 7, { width: COL_UNIT, align: "right",  lineBreak: false });
+      doc.text("Total",        L + COL_DESC + COL_QTY + COL_UNIT, y + 7, { width: COL_TOT - 8, align: "right", lineBreak: false });
+      y += ROW_H + 1;
 
-      // Rows
+      // Data rows
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        const rowH = Math.max(22, doc.heightOfString(it.description, { width: W - 220 }) + 10);
+        const textH = doc.heightOfString(it.description, { width: COL_DESC - 16, fontSize: 8.5 });
+        const rowH  = Math.max(ROW_H, textH + 10);
+
         if (i % 2 !== 0) doc.rect(L, y, W, rowH).fill(BG);
+
         doc.font("Helvetica").fontSize(8.5).fillColor(INK);
-        doc.text(it.description, L + 8, y + 6, { width: W - 220 - 8 });
-        doc.fillColor(DIM).text(String(it.qty), L + W - 212, y + 6, { width: 40, align: "center" });
-        doc.text(fmt(it.unitPrice), L + W - 165, y + 6, { width: 80, align: "right" });
-        doc.font("Helvetica-Bold").fillColor(INK).text(fmt(it.qty * it.unitPrice), L + W - 80, y + 6, { width: 72, align: "right" });
-        // border
-        doc.moveTo(L, y + rowH).lineTo(R, y + rowH).lineWidth(0.5).strokeColor(BORDER).stroke();
+        doc.text(it.description, L + 8, y + 6, { width: COL_DESC - 16 });
+
+        const midY = y + (rowH - 11) / 2;  // vertically center numeric columns
+        doc.fillColor(DIM)
+           .text(String(it.qty), L + COL_DESC, midY, { width: COL_QTY, align: "center", lineBreak: false });
+        doc.text(fmt(it.unitPrice), L + COL_DESC + COL_QTY, midY, { width: COL_UNIT, align: "right", lineBreak: false });
+        doc.font("Helvetica-Bold").fillColor(INK)
+           .text(fmt(it.qty * it.unitPrice), L + COL_DESC + COL_QTY + COL_UNIT, midY, { width: COL_TOT - 8, align: "right", lineBreak: false });
+
+        doc.moveTo(L, y + rowH).lineTo(R, y + rowH).lineWidth(0.4).strokeColor(BORDER).stroke();
         y += rowH;
       }
 
-      y += 6;
+      y += 8;
 
-      // Totals (right-aligned)
-      const totX = R - 220;
-      const totW = 220;
-      doc.font("Helvetica").fontSize(8.5).fillColor(DIM).text("Subtotal", totX, y, { width: 120 });
-      doc.fillColor(INK).text(fmt(subtotal), totX + 120, y, { width: totW - 120, align: "right" }); y += 14;
-      doc.fillColor(DIM).text("IVA (16%)", totX, y, { width: 120 });
-      doc.fillColor(INK).text(fmt(iva), totX + 120, y, { width: totW - 120, align: "right" }); y += 4;
+      // Totals block (right-aligned, 220px wide)
+      const totW  = 220;
+      const totX  = R - totW;
+      const lineH = 18;
 
-      // Total row with blue bg
-      doc.rect(totX, y, totW, 22).fill(BLUE);
+      doc.font("Helvetica").fontSize(8.5);
+      // Subtotal
+      doc.fillColor(DIM).text("Subtotal",  totX,        y, { width: 110, lineBreak: false });
+      doc.fillColor(INK).text(fmt(subtotal), totX + 110, y, { width: totW - 110, align: "right", lineBreak: false });
+      y += lineH;
+      // IVA
+      doc.fillColor(DIM).text("IVA (16%)", totX,        y, { width: 110, lineBreak: false });
+      doc.fillColor(INK).text(fmt(iva),     totX + 110, y, { width: totW - 110, align: "right", lineBreak: false });
+      y += lineH + 2;
+      // Total (blue bg)
+      doc.rect(totX, y, totW, 24).fill(BLUE);
       doc.font("Helvetica-Bold").fontSize(9).fillColor("#ffffff");
-      doc.text("TOTAL", totX + 8, y + 7, { width: 100 });
-      doc.text(fmt(total), totX + 100, y + 7, { width: totW - 108, align: "right" });
-      y += 30;
+      doc.text("TOTAL",     totX + 10,        y + 8, { width: 80,            lineBreak: false });
+      doc.text(fmt(total),  totX + 90,         y + 8, { width: totW - 98, align: "right", lineBreak: false });
+      y += 34;
     }
 
-    // ── Notas ──────────────────────────────────────────────────────
+    // ── NOTAS ADICIONALES ─────────────────────────────────────────────
     if (raw.notes) {
-      doc.rect(L, y, W, doc.heightOfString(raw.notes, { width: W - 20 }) + 20).fill(BG);
-      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("NOTAS ADICIONALES", L + 10, y + 8);
-      doc.fontSize(8.5).fillColor(INK).text(raw.notes, L + 10, y + 20, { width: W - 20 });
+      const notesH = doc.heightOfString(raw.notes, { width: W - 20, fontSize: 8.5, lineGap: 2 });
+      const boxH   = notesH + 28;
+      doc.rect(L, y, W, boxH).fill(BG);
+      doc.font("Helvetica").fontSize(7).fillColor(DIM).text("NOTAS ADICIONALES", L + 10, y + 9);
+      doc.font("Helvetica").fontSize(8.5).fillColor(INK)
+         .text(raw.notes, L + 10, y + 21, { width: W - 20, lineGap: 2 });
+      y += boxH + 10;
     }
 
-    // ── Footer (page bottom) ────────────────────────────────────────
-    const footY = doc.page.height - 45;
+    // ── FOOTER ────────────────────────────────────────────────────────
+    const footY = doc.page.height - 44;
     doc.moveTo(L, footY).lineTo(R, footY).lineWidth(0.5).strokeColor(BORDER).stroke();
-    doc.font("Helvetica").fontSize(7).fillColor(DIM).text("mezadigital.com  ·  contacto@mezadigital.com", L, footY + 8);
-    doc.text("* Precios expresados en MXN, más IVA (16%)", L, footY + 8, { width: W, align: "right" });
+    doc.font("Helvetica").fontSize(7).fillColor(DIM)
+       .text("mezadigital.com  ·  contacto@mezadigital.com", L, footY + 9);
+    doc.text("* Precios expresados en MXN, más IVA (16%)", L, footY + 9, { width: W, align: "right" });
 
     doc.end();
     await endPromise;
 
-    const buffer = Buffer.concat(chunks);
+    const buffer   = Buffer.concat(chunks);
     const filename = `Cotizacion-MezaDigital-${raw.name.replace(/\s+/g, "-")}.pdf`;
 
     return new NextResponse(new Uint8Array(buffer), {
