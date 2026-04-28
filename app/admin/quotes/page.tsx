@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useCrmStore } from "@/stores/crmStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -437,16 +437,30 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
     company:     initial?.company     || "",
     projectType: initial?.projectType || "web",
     description: initial?.description || "",
-    budget:      initial?.budget      || "",
     timeline:    initial?.timeline    || "",
     techStack:   initial?.techStack   || "",
     status:      initial?.status      || "pendiente",
     notes:       initial?.notes       || "",
   });
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const [items, setItems] = useState<QuoteItem[]>(
+    Array.isArray(initial?.items) ? initial.items : []
+  );
+  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm(p => ({ ...p, [k]: e.target.value }));
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+    onSave({ ...form, items: items.length > 0 ? items : null, price: subtotal || null });
+  }
+
+  const subtotal = items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
+  const pdfQuote: Quote = initial
+    ? { ...initial, ...form, items, price: subtotal || null }
+    : { id: "preview", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...form, items, price: subtotal || null };
 
   return (
-    <form onSubmit={e => { e.preventDefault(); onSave(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FField label="Nombre"><input value={form.name}  onChange={f("name")}  style={fieldStyle} required /></FField>
         <FField label="Email"><input  value={form.email} onChange={f("email")} style={fieldStyle} required type="email" /></FField>
@@ -463,22 +477,23 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
         <textarea value={form.description} onChange={f("description")} style={{ ...fieldStyle, resize: "vertical" }} rows={3} required />
       </FField>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <FField label="Presupuesto referencial">
-          <select value={form.budget} onChange={f("budget")} style={fieldStyle}>
-            <option value="">—</option>
-            {BUDGETS.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-        </FField>
         <FField label="Tiempo estimado">
           <select value={form.timeline} onChange={f("timeline")} style={fieldStyle}>
             <option value="">—</option>
             {TIMELINES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </FField>
+        <FField label="Tech stack">
+          <input value={form.techStack} onChange={f("techStack")} style={fieldStyle} placeholder="React, Node.js, PostgreSQL…" />
+        </FField>
       </div>
-      <FField label="Tech stack deseado">
-        <input value={form.techStack} onChange={f("techStack")} style={fieldStyle} placeholder="React, Node.js, PostgreSQL…" />
-      </FField>
+
+      {/* Desglose de costos */}
+      <div style={{ borderTop: "1px solid rgba(51,133,255,0.14)", paddingTop: 14 }}>
+        <div style={{ fontSize: 9, color: "#4a5568", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 10 }}>Desglose de costos</div>
+        <ItemsEditor items={items} onChange={setItems} />
+      </div>
+
       <FField label="Estado">
         <select value={form.status} onChange={f("status")} style={fieldStyle}>
           {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -487,9 +502,27 @@ function QuoteForm({ initial, saving, onSave, onCancel }: {
       <FField label="Notas internas">
         <textarea value={form.notes} onChange={f("notes")} style={{ ...fieldStyle, resize: "vertical" }} rows={2} />
       </FField>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
-        <button type="button" onClick={onCancel} style={secBtn}>Cancelar</button>
-        <button type="submit" disabled={saving} style={primaryBtn}>{saving ? "Guardando…" : "Guardar"}</button>
+
+      <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", paddingTop: 4, flexWrap: "wrap" }}>
+        {/* PDF button — only when there's price data and an existing quote */}
+        {initial && subtotal > 0 ? (
+          <PDFDownloadLink
+            document={<QuotePDF quote={pdfQuote} />}
+            fileName={`Cotizacion-MezaDigital-${form.name.replace(/\s+/g, "-")}.pdf`}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)",
+              color: "#10b981", fontSize: 11, fontWeight: 500, textDecoration: "none",
+            }}
+          >
+            {({ loading }) => <><Download size={13} /> {loading ? "Preparando…" : "Descargar PDF"}</>}
+          </PDFDownloadLink>
+        ) : <span />}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={onCancel} style={secBtn}>Cancelar</button>
+          <button type="submit" disabled={saving} style={primaryBtn}>{saving ? "Guardando…" : "Guardar"}</button>
+        </div>
       </div>
     </form>
   );
