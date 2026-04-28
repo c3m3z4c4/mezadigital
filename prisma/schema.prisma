@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,11 +11,11 @@ model Project {
   id             String   @id @default(cuid())
   title_en       String
   title_es       String
-  description_en String?
-  description_es String?
-  images         String   @default("[]")
+  description_en String?  @db.Text
+  description_es String?  @db.Text
+  images         String   @default("[]") @db.Text
   projectType    String?  @default("web")
-  techStack      String   @default("[]")
+  techStack      String   @default("[]") @db.Text
   githubUrl      String?
   liveUrl        String?
   client         String?
@@ -23,7 +23,7 @@ model Project {
   featured       Boolean  @default(false)
   visible        Boolean  @default(true)
   order          Int      @default(0)
-  tags           String   @default("[]")
+  tags           String   @default("[]") @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -32,8 +32,8 @@ model Service {
   id             String   @id @default(cuid())
   title_en       String
   title_es       String
-  description_en String?
-  description_es String?
+  description_en String?  @db.Text
+  description_es String?  @db.Text
   icon           String?
   image          String?
   visible        Boolean  @default(true)
@@ -47,7 +47,7 @@ model Message {
   name      String
   email     String
   phone     String?
-  message   String
+  message   String   @db.Text
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 }
@@ -58,12 +58,12 @@ model Quote {
   email       String
   company     String?
   projectType String?  @default("web")
-  description String
+  description String   @db.Text
   budget      String?
   timeline    String?
   techStack   String?
   status      String   @default("pendiente")
-  notes       String?
+  notes       String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -73,13 +73,13 @@ model Invoice {
   number      String
   clientName  String
   clientEmail String?
-  concept     String
+  concept     String   @db.Text
   amount      Float    @default(0)
   currency    String   @default("MXN")
   status      String   @default("borrador")
   dueDate     String?
   issuedAt    String?
-  notes       String?
+  notes       String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -91,8 +91,27 @@ model Appointment {
   date      String
   time      String?
   topic     String
-  notes     String?
+  notes     String?  @db.Text
   status    String   @default("pendiente")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// CMS: key-value store for editable landing page content
+model SiteContent {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+// Dynamic clients section
+model ClientLogo {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  url       String?
+  visible   Boolean  @default(true)
+  order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

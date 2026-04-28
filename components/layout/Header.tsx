@@ -60,9 +60,7 @@ export function Header() {
     return () => observer.disconnect();
   }, []);
 
-  const logoSrc = theme === "dark"
-    ? "/assets/images/Logo@2x.png"  // white invert on dark
-    : "/assets/images/Logo@2x.png";
+  const logoSrc = "/assets/images/Logo@2x.png";
 
   return (
     <header
@@ -102,8 +100,6 @@ export function Header() {
             height={44}
             style={{
               objectFit: "contain",
-              filter: theme === "dark" ? "brightness(0) invert(1)" : "none",
-              transition: "filter 0.35s",
             }}
             priority
           />
