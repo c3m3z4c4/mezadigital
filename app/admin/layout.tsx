@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useCrmStore } from "@/stores/crmStore";
-import { LayoutDashboard, Mail, FileText, Receipt, Calendar, LayoutGrid, LogOut, Pencil } from "lucide-react";
+import { LayoutDashboard, Mail, FileText, Receipt, Calendar, LayoutGrid, LogOut, Pencil, Users } from "lucide-react";
 
 const NAV = [
   { href: "/admin/dashboard",     label: "Dashboard",   icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/appointments",  label: "Reuniones",   icon: Calendar,    badge: "appointments" },
   { href: "/admin/portfolio",     label: "Portafolio",  icon: LayoutGrid },
   { href: "/admin/content",       label: "Contenido",   icon: Pencil },
+  { href: "/admin/users",         label: "Usuarios",    icon: Users },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -25,6 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/appointments": "Reuniones",
   "/admin/portfolio":    "Portafolio",
   "/admin/content":      "Contenido",
+  "/admin/users":        "Usuarios",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -5,7 +5,7 @@ const getSecret = () =>
     process.env.JWT_SECRET || "meza-digital-dev-secret-change-in-prod"
   );
 
-export async function signToken(payload: { email: string }): Promise<string> {
+export async function signToken(payload: { email: string; role?: string }): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -13,10 +13,10 @@ export async function signToken(payload: { email: string }): Promise<string> {
     .sign(getSecret());
 }
 
-export async function verifyToken(token: string): Promise<{ email: string } | null> {
+export async function verifyToken(token: string): Promise<{ email: string; role?: string } | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
-    return payload as { email: string };
+    return payload as { email: string; role?: string };
   } catch {
     return null;
   }
