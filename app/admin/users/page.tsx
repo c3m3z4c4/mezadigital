@@ -11,6 +11,7 @@ interface User {
   role: string;
   active: boolean;
   createdAt: string;
+  isEnvAdmin?: boolean;
 }
 
 const API = "/api/users";
@@ -219,7 +220,14 @@ export default function UsersPage() {
               padding: "12px 16px", borderBottom: "1px solid rgba(51,133,255,0.06)",
               alignItems: "center",
             }}>
-              <span style={{ fontSize: 13, color: "#e2eaf5" }}>{user.email}</span>
+              <span style={{ fontSize: 13, color: "#e2eaf5", display: "flex", alignItems: "center", gap: 8 }}>
+                {user.email}
+                {user.isEnvAdmin && (
+                  <span style={{ fontSize: 9, padding: "1px 6px", background: "rgba(201,168,76,0.15)", color: "#c9a84c", fontWeight: 700, letterSpacing: "0.08em" }}>
+                    ENV
+                  </span>
+                )}
+              </span>
               <span style={{ fontSize: 11 }}>
                 <span style={{
                   padding: "2px 8px",
@@ -241,27 +249,34 @@ export default function UsersPage() {
                 </span>
               </span>
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                <button
-                  title="Resetear contraseña"
-                  onClick={() => setResetId(user.id)}
-                  style={{ background: "none", border: "1px solid rgba(51,133,255,0.2)", color: "#3385ff", padding: "4px 8px", cursor: "pointer" }}
-                >
-                  <KeyRound size={13} />
-                </button>
-                <button
-                  title={user.active ? "Desactivar" : "Activar"}
-                  onClick={() => toggleActive(user)}
-                  style={{ background: "none", border: "1px solid rgba(100,120,100,0.2)", color: user.active ? "#4ade80" : "#f87171", padding: "4px 8px", cursor: "pointer" }}
-                >
-                  {user.active ? <UserX size={13} /> : <UserCheck size={13} />}
-                </button>
-                <button
-                  title="Eliminar"
-                  onClick={() => deleteUser(user)}
-                  style={{ background: "none", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "4px 8px", cursor: "pointer" }}
-                >
-                  <Trash2 size={13} />
-                </button>
+                {!user.isEnvAdmin && (
+                  <>
+                    <button
+                      title="Resetear contraseña"
+                      onClick={() => setResetId(user.id)}
+                      style={{ background: "none", border: "1px solid rgba(51,133,255,0.2)", color: "#3385ff", padding: "4px 8px", cursor: "pointer" }}
+                    >
+                      <KeyRound size={13} />
+                    </button>
+                    <button
+                      title={user.active ? "Desactivar" : "Activar"}
+                      onClick={() => toggleActive(user)}
+                      style={{ background: "none", border: "1px solid rgba(100,120,100,0.2)", color: user.active ? "#4ade80" : "#f87171", padding: "4px 8px", cursor: "pointer" }}
+                    >
+                      {user.active ? <UserX size={13} /> : <UserCheck size={13} />}
+                    </button>
+                    <button
+                      title="Eliminar"
+                      onClick={() => deleteUser(user)}
+                      style={{ background: "none", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171", padding: "4px 8px", cursor: "pointer" }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
+                {user.isEnvAdmin && (
+                  <span style={{ fontSize: 10, color: "#4a5568", fontStyle: "italic" }}>cambiar en Dokploy</span>
+                )}
               </div>
             </div>
           ))

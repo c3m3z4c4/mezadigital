@@ -19,11 +19,22 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const users = await prisma.user.findMany({
+  const dbUsers = await prisma.user.findMany({
     orderBy: { createdAt: "asc" },
     select: { id: true, email: true, role: true, active: true, createdAt: true },
   });
-  return NextResponse.json(users);
+
+  // prepend the env-var superadmin so it always appears in the list
+  const envAdmin = {
+    id: "__env__",
+    email: process.env.ADMIN_EMAIL || "admin@mezadigital.com",
+    role: "admin",
+    active: true,
+    createdAt: new Date(0).toISOString(),
+    isEnvAdmin: true,
+  };
+
+  return NextResponse.json([envAdmin, ...dbUsers]);
 }
 
 export async function POST(req: NextRequest) {
